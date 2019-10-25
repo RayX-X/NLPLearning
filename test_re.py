@@ -104,7 +104,26 @@ re.sub(pattern, repl, string, count):
 返回 (sub(repl, string, count), 替换次数)。
 """
 print(re.sub(r'\([^)]*\)', ',', '(南)(京)(长江)大桥', 2))  # ,,(长江)大桥
+# 当repl是一个方法时
+# 将匹配的数字乘以 2
+
+
+def double(matched):
+    value = int(matched.group('value'))
+    return str(value * 2)
+
+
+s = 'A23G4HFD567'
+print(re.sub(r'(?P<value>\d+)', double, s))
 
 print(re.subn(r'\([^)]*\)', ',', '(南)(京)(长江)大桥', 2))  # (',,(长江)大桥', 2)
 
-
+# In[]
+large = re.match(r'HELLO', 'hello world!', re.I)
+low = re.match(r'HELLO', 'hello world!')
+print(large.group())  # hello
+print(low.group())  # AttributeError: 'NoneType' object has no attribute 'group'
+# In[]
+s = '1102231990xxxxxxxx'
+res = re.search(r'(?P<province>\d{3})(?P<city>\d{3})(?P<born_year>\d{4})', s)
+print(res.groupdict())  # {'province': '110', 'city': '223', 'born_year': '1990'}
