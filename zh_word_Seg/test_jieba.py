@@ -7,8 +7,10 @@ import jieba.analyse  # 关键词
 from jieba.analyse import ChineseAnalyzer  # 搜索引擎
 # jieba.initialize()  # 手动初始化（可选）
 
+
 def word_seg():
     """
+    HMM= 参数用来控制是否使用 HMM 模型用于新词发现
     jieba提供3种分词模式
         精确模式，试图将句子最精确地切开，适合文本分析；
         全模式，把句子中所有的可以成词的词语都扫描出来, 速度非常快，但是不能解决歧义；
@@ -18,8 +20,10 @@ def word_seg():
         jieba.disable_parallel()  # 关闭并行分词模式
     :return: generator / list
     """
-    default = jieba.cut('在南京市长江大桥研究生命的起源他来到了网易杭研大厦', cut_all=False, HMM=False)  # 精确模式 默认模式
-    hmm = jieba.cut('在南京市长江大桥研究生命的起源他来到了网易杭研大厦', HMM=True)  # HMM= 参数用来控制是否使用 HMM 模型用于新词发现
+    default = jieba.cut('在南京市长江大桥研究生命的起源他来到了网易杭研大厦')  # 默认模式 默认cut_all=False, HMM=True
+    hmm = jieba.cut('在南京市长江大桥研究生命的起源他来到了网易杭研大厦', cut_all=False, HMM=True)
+
+    accurate = jieba.cut('在南京市长江大桥研究生命的起源他来到了网易杭研大厦', cut_all=False, HMM=False)  # 精确模式
     full = jieba.cut('在南京市长江大桥研究生命的起源', cut_all=True)  # 全模式
     search = jieba.cut_for_search('在南京市长江大桥研究生命的起源')  # 搜索引擎模式
 
@@ -27,25 +31,41 @@ def word_seg():
     search_list = jieba.lcut_for_search('在南京市长江大桥研究生命的起源')
 
     # jieba.Tokenizer(dictionary=)  # 新建分词器
-    print('default', "/".join(default))
-    print('hmm', "/".join(hmm))
-    print('default_list', default_list)
-    print('full', "/".join(full))
-    print('search', "/".join(search))
-    print('search_list', search_list)
+    print('default'.rjust(15), "/".join(default))
+    print('hmm'.rjust(15), "/".join(hmm))
+
+    print('accurate'.rjust(15), "/".join(accurate))
+
+    print('full'.rjust(15), "/".join(full))
+    print('search'.rjust(15), "/".join(search))
+
+    print('default_list'.rjust(15), default_list)
+    print('search_list'.rjust(15), search_list)
+
 
 # Out[] :
-# default       在/南京市/长江大桥/研究/生命/的/起源/他/来到/了/网易/杭/研/大厦
+# default       在/南京市/长江大桥/研究/生命/的/起源/他/来到/了/网易/杭研/大厦
 # hmm           在/南京市/长江大桥/研究/生命/的/起源/他/来到/了/网易/杭研/大厦
-# default_list ['在', '南京市', '长江大桥', '研究', '生命', '的', '起源']
+# accurate      在/南京市/长江大桥/研究/生命/的/起源/他/来到/了/网易/杭/研/大厦
 # full          在/南京/南京市/京市/市长/长江/长江大桥/大桥/研究/研究生/生命/的/起源
 # search        在/南京/京市/南京市/长江/大桥/长江大桥/研究/生命/的/起源
+# default_list  ['在', '南京市', '长江大桥', '研究', '生命', '的', '起源']
 # search_list   ['在', '南京', '京市', '南京市', '长江', '大桥', '长江大桥', '研究', '生命', '的', '起源']
 
 
 def set_dict():
     """
     自定义词典
+    一词一行 一行：词语  词频（可省）词性（可省)  空格分隔  **顺序不可颠倒 UTF-8编码**
+    ```
+    华能 3  nz
+    云泥 ns
+    河势 n
+    庙沟 ns
+    ```
+    使用 add_word(word, freq=None, tag=None) 和 del_word(word) 可在程序中**动态修改**词典。
+    使用 suggest_freq(segment, tune=True) 可调节单个词语的词频，使其能（或不能）被分出来。
+    注意：自动计算的词频在使用 HMM 新词发现功能时可能无效。
     :return:
     """
     jieba.load_userdict('../Data/dict/30wChinsesSeqDic_clean.txt')
@@ -67,6 +87,8 @@ def set_dict():
 def pos_tag():
     """
     词性标注
+    jieba.posseg.POSTokenizer(tokenizer=None) 新建自定义分词器，tokenizer 参数可指定内部使用的 jieba.Tokenizer 分词器。jieba.posseg.dt 为默认词性标注分词器。
+    标注句子分词后每个词的词性，采用和 ictclas 兼容的标记法。
     :return: generator
     """
     words = jieba.posseg.cut('在南京市长江大桥研究生命的起源')
@@ -95,7 +117,7 @@ def key_word():
     """
     tf_tags = jieba.analyse.extract_tags('在南京市长江大桥研究生命的起源', topK=5, withWeight=True, allowPOS=())
     [print(keyword, withWeight) for keyword, withWeight in tf_tags]
-
+    print('\n')
     # jieba.analyse.set_idf_path('file_name')  # file_name为自定义 逆向文件频率（IDF）文本语料库 的路径
     # jieba.analyse.set_stop_words(file_name)  # file_name为自定义 停止词（Stop Words）文本语料库 的路径
     """
@@ -121,6 +143,7 @@ def key_word():
 # 起源 0.754549579615211
 # 南京市 0.7479886203982464
 
+
 def token():
     """
     返回词语在原文的起止位置
@@ -128,11 +151,12 @@ def token():
     有默认模式 与 搜索模式
     :return: generator
     """
-    words_locat = jieba.tokenize('在南京市长江大桥研究生命的起源', mode='default', HMM=False)
-    [print("word %s\t\t start: %d \t\t end:%d" % (w[0], w[1], w[2])) for w in words_locat]
-
-    words_locat_search = jieba.tokenize('在南京市长江大桥研究生命的起源', mode='search', HMM=False)
-    [print("word %s\t\t start: %d \t\t end:%d" % (w[0], w[1], w[2])) for w in words_locat_search]
+    words_locat = jieba.tokenize('研究南京长江大桥的起源', mode='default', HMM=False)
+    print('# default')
+    [print("word %s\t\t start: %d \t\t end:%d" % (w[0].rjust(10), w[1], w[2])) for w in words_locat]
+    print('# words_locat_search')
+    words_locat_search = jieba.tokenize('研究南京长江大桥的起源', mode='search', HMM=False)
+    [print("word %s\t\t start: %d \t\t end:%d" % (w[0].rjust(10), w[1], w[2])) for w in words_locat_search]
 # Out[] :
 # default
 # word 在		 start: 0 	end:1
@@ -159,12 +183,13 @@ def token():
 def whoosh():
     analyzer = ChineseAnalyzer()
     [print(t.text) for t in analyzer("在南京市长江大桥研究生命的起源")]
-
+    print(analyzer)
 
 if __name__ == "__main__":
-    word_seg()
-    set_dict()
-    pos_tag()
-    token()
-    key_word()
+    # word_seg()
+    # set_dict()
+    # pos_tag()
+    # key_word()
+    # token()
+
     whoosh()
