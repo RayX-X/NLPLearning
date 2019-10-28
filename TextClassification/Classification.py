@@ -1,14 +1,12 @@
 # -*- coding:utf-8 -*-
 # @Time    : 2019/10/14 10:26
 # @Author  : Ray.X
+# In[] 读取文本
 import zipfile
 import lxml.etree
-# In[] 读取文本
 """
     获取xml中的有效文本 content 数据 keywords 标签
 """
-# content = []
-# keywords[i]s = []
 with zipfile.ZipFile(r'D:\C\NLP\Data\ted_en-20160408.zip', 'r') as z:
     doc = lxml.etree.parse(z.open('ted_en-20160408.xml', 'r'))
 content = (doc.xpath('//content/text()'))   # 获取<content>下的文本 数组
@@ -35,6 +33,7 @@ for i in range(len(words_list)):
     clean_words = []
 
 # In[] 处理标签
+
 """
     处理keywords
     - None of the keywords → ooo
@@ -89,11 +88,11 @@ from collections import Counter
     做个简单的标签统计
 """
 c = Counter(keywords)
-d = {'keywords': list(c.keys()), 'count': list(c.values())}
+d = {'keywords': list(c.keys()), 'counts': list(c.values())}
 count_key = pd.DataFrame(d)
-df.plot(x='keywords', y='count', kind='bar', legend=False, figsize=(8, 5))
+count_key.plot(x='keywords', y='counts', kind='bar', legend=False, figsize=(8, 5))
 plt.title("类目分布")
-plt.ylabel('count', fontsize=18)
+plt.ylabel('counts', fontsize=18)
 plt.xlabel('keywords', fontsize=18)
 plt.show()
 plt.close()
@@ -110,7 +109,7 @@ from keras.preprocessing.sequence import pad_sequences
     设置每条content最大的词语数为250个(超过的将会被截去,不足的将会被补0)
 """
 # 设置最频繁使用的50000个词
-MAX_NB_WORDS = 100000
+MAX_NB_WORDS = 50000
 # 每条cut_review最大的长度
 MAX_SEQUENCE_LENGTH = 250
 # 设置Embeddingceng层的维度
@@ -132,8 +131,11 @@ print(Y.shape)
     拆分1585组训练 250组验证 250 组测试
 """
 from sklearn.model_selection import train_test_split
-X_train, X_test, Y_train, Y_test = train_test_split(X, Y, test_size=500, random_state=1)
+X_train, X_test, Y_train, Y_test = train_test_split(X, Y, test_size=250, random_state=1)
+X_train, X_validation, Y_train, Y_validation = train_test_split(X_train, Y_train, test_size=250, random_state=1)
+
 print(X_train.shape, Y_train.shape)
+print(X_validation.shape, Y_validation.shape)
 print(X_test.shape, Y_test.shape)
 # In[] 定义模型
 """
@@ -144,6 +146,8 @@ from keras.layers.embeddings import Embedding
 from keras.layers import SpatialDropout1D
 from keras.layers import Dense
 from keras.layers import LSTM
+
+
 model = Sequential()
 model.add(Embedding(MAX_NB_WORDS, EMBEDDING_DIM, input_length=X.shape[1]))
 model.add(SpatialDropout1D(0.2))
@@ -158,6 +162,59 @@ from keras.callbacks import EarlyStopping
 """
 epochs = 5
 batch_size = 64
-
-history = model.fit(X_train, Y_train, epochs=epochs, batch_size=batch_size, validation_split=0.1,
+# validation_split=0.1 自动切分验证集
+# history = model.fit(X_train, Y_train, epochs=epochs, batch_size=batch_size, validation_split=0.1,
+#                     callbacks=[EarlyStopping(monitor='val_loss', patience=3, min_delta=0.0001)])
+#  validation_data=(X_test,y_test) 手动切分的数据集
+history = model.fit(X_train, Y_train, epochs=epochs, batch_size=batch_size,  validation_data=(X_validation, Y_validation),
                     callbacks=[EarlyStopping(monitor='val_loss', patience=3, min_delta=0.0001)])
+# 绘制loss图
+plt.title('Loss')
+plt.plot(history.history['loss'], label='train')
+plt.plot(history.history['val_loss'], label='test')
+plt.legend()
+plt.show()
+
+# 绘制acc图
+plt.title('Accuracy')
+plt.plot(history.history['accuracy'], label='train')
+plt.plot(history.history['val_accuracy'], label='test')
+plt.legend()
+plt.show()
+
+import seaborn as sns
+from sklearn.metrics import accuracy_score, confusion_matrix
+
+y_pred = model.predict(X_test)
+y_pred = y_pred.argmax(axis=1)
+Y_test = Y_test.argmax(axis=1)
+
+# 生成混淆矩阵
+conf_mat = confusion_matrix(Y_test, y_pred)
+fig, ax = plt.subplots(figsize=(10, 8))
+sns.heatmap(conf_mat, annot=True, fmt='d',
+            xticklabels=key_id_df.keywords.values, yticklabels=key_id_df.keywords.values)
+plt.ylabel('实际结果', fontsize=18)
+plt.xlabel('预测结果', fontsize=18)
+
+from sklearn.metrics import classification_report
+
+print('accuracy %s' % accuracy_score(y_pred, Y_test))
+print(classification_report(Y_test, y_pred, target_names=key_id_df['keywords'].values))
+
+
+def predict(text):
+    """
+    测试函数
+    :param text:
+    :return:
+    """
+    txt = re.sub(r'[^\w\s]', '', text.lower())
+    txt = [" ".join([w for w in word_tokenize(txt) if w not in  stopwords.words('english')])]
+    seq = tokenizer.texts_to_sequences(txt)
+    padded = pad_sequences(seq, maxlen=MAX_SEQUENCE_LENGTH)
+    pred = model.predict(padded)
+    key_id= pred.argmax(axis=1)[0]
+    return key_id_df[key_id_df.key_id==key_id]['keywords'].values[0]
+
+predict("So far we've been looking to this new piece of mechanical technology or that great next generation robot as part of a lineup to ensure our species safe passage in space. Wonderful as they are, I believe the time has come for us to complement these bulky electronic giants with what nature has already invented: the microbe, a single-celled organism that is itself a self-generating, self-replenishing, living machine.")
