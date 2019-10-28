@@ -33,13 +33,23 @@ k = input_text_noparens.find("Hyowon Gweon: See this?")
 print(k, '->', input_text_noparens[i - 20:i + 150])
 """
     现在，让我们尝试删除出现在一行开头的发言者的姓名，
-    通过删除“`<up to 20 characters>：`”格式的片段，如本例所示。 把 xxx说： 去除
-    当然，这是一个不完美的探索。
-    ^(?:(?P<name>exp) （）命名一个分组
-    （?:）匹配不获取分组 [^:]不要：^非或者开头
-    (?:(?P<precolon>[^:]{,20}):) ：前的20个字符不要
-    中间? 可有可无
-    (?P<postcolon>.*)$ ：后的内容 . 任意字符 * 0-正无穷 $结尾
+    通过删除“`<up to 20 characters>：`”格式的片段
+    ^(?:(?P<precolon>[^:]{,20}):) 意思为 匹配 从开头到'：'之间 除'：'外字符数小于等于20的字符串，并将所匹配的组命名为 preconlon
+        (字符包括空格)
+        (?P<name>exp) 为命名一个分组
+        (?:(exp):)匹配不获取分组
+        [^:] 匹配除'：'外的字符
+        {,20} 最多匹配前20个字符 超过则不匹配
+        ^ 指非或者开头
+        例: "And here's the thing: it's not really a joke."  匹配到"And here's the thing"
+            "And here is the thing: it's not really a joke." 匹配到 None
+            "Here's the thing: it's not really a joke."  匹配到 "Here's the thing"
+    ? 即之后的内容可有可无i
+    (?P<postcolon>.*)$ 指'：'后的所有内容 并命名为postcolon组
+        '. '代表任意字符
+        '* '代表 0-正无穷
+        .* 贪婪匹配 匹配所有被人
+        $结尾
     m.groupdict()['postcolon'].split('.') 取 postcolon 组的 字典按。号分割
 """
 
@@ -79,6 +89,7 @@ counts_ted_top1000_counter = c.most_common(1000)
 print(counts_ted_top1000_counter[:5])
 
 # 方法2 使用 from sklearn.feature_extraction.text import CountVectorizer
+# argsort()函数是将x中的元素从小到大排列，提取其对应的index(索引) -X则取反
 vec = CountVectorizer()
 X = vec.fit_transform(sentences_strings_ted)  # 不同点不需要分词 直接用句子处理
 counts_ted_top1000_index = np.array(np.argsort(-X.sum(axis=0))).squeeze()[:1000]
@@ -127,8 +138,8 @@ man = model_ted.wv.most_similar('man')
 computer = model_ted.wv.most_similar("computer")
 print('man', '——>', man)
 print('computer', '——>', computer)
-man2 = model_fas.most_similar('man')
-Gastroenteritis = model_fas.most_similar("Gastroenteritis")
+man2 = model_fas.wv.most_similar('man')
+Gastroenteritis = model_fas.wv.most_similar("Gastroenteritis")
 
 # 补充作业计算两个词向量的余弦距离，-》1则更接近
 
@@ -170,13 +181,13 @@ show(p)
 # ### Part 5: Wiki Learnt Representations
 
 print('-----------下载维基百科文本数据-----------')
-if not os.path.isfile('../Data/wikitext-103-raw-v1.zip'):
+if not os.path.isfile(r'D:\C\NLP\Data\wikitext-103-raw-v1.zip'):
     urllib.request.urlretrieve("https://s3.amazonaws.com/research.metamind.io/wikitext/wikitext-103-raw-v1.zip",
                                filename="wikitext-103-raw-v1.zip")
 
-
+# In[]
 print('-----------解压并读取数据-----------')
-with zipfile.ZipFile('../Data/wikitext-103-raw-v1.zip', 'r') as z:
+with zipfile.ZipFile(r'D:\C\NLP\Data\wikitext-103-raw-v1.zip', 'r') as z:
     input_text = str(z.open('wikitext-103-raw/wiki.train.raw', 'r').read(), encoding='utf-8')
 
 print('-----------分句-----------')
@@ -250,22 +261,22 @@ print(wiki_ted_top1000_word[clu_labels == 0])
 print(wiki_ted_top1000_word[clu_labels == 1])
 
 colors = [
-    '#%dr%dr%d' % (int(2.55 * r), 150, 150) for r in clu_labels
+    '#%d%d%d' % (int(2.55 * r), int(1.5 * r), int(1 * r)) for r in clu_labels
 ]
-
 p = figure(tools="pan,wheel_zoom,reset,save",
            toolbar_location="above",
            title="word2vec T-SNE for most common words")
 
 clustering_source = ColumnDataSource(data=dict(x1=words_top_wiki_tsne[:, 0],
                                                x2=words_top_wiki_tsne[:, 1],
-                                               names=words_top_wiki))
+                                               names=words_top_wiki,
+                                               colors=colors))
 
-p.scatter(x="x1", y="x2", size=8, source=clustering_source, fill_color=colors)
+p.scatter(x="x1", y="x2", size=8, source=clustering_source, fill_color='colors')
 
 labels = LabelSet(x="x1", y="x2", text="names", y_offset=6,
                   text_font_size="8pt", text_color="#555555",
-                  source=source, text_align='center')
+                  source=clustering_source, text_align='center')
 p.add_layout(labels)
 
 show(p)
