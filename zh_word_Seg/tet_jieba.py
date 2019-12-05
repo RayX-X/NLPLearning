@@ -1,6 +1,9 @@
 ﻿# -*- coding:utf-8 -*-
 # @Time    : 2019/10/23 14:55
 # @Author  : Ray.X
+"""
+    Test jieba
+"""
 import jieba
 import jieba.posseg  # 词性标注
 import jieba.analyse  # 关键词

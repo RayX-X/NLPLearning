@@ -105,3 +105,6 @@ venv.bak/
 
 .idea/
 Data/
+
+kao.py
+zh_word_Seg/n_short.py

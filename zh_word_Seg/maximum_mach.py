@@ -1,6 +1,9 @@
 # -*- coding:utf-8 -*-
 # @Time    : 2019/10/21 11:12
 # @Author  : Ray.X
+"""
+    Use FMM/RMM/BMM for Chinese word segmentation
+"""
 # 初始化
 import lxml.etree
 import re
