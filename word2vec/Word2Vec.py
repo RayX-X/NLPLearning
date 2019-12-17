@@ -206,7 +206,7 @@ print('-----------取1/5的数据-----------')
 # sample 1/5 of the data  shuffle打乱顺序
 shuffle(sentences_wiki)
 print(len(sentences_wiki))
-sentences_wiki = sentences_wiki[:int(len(sentences_wiki) / 5)]
+sentences_wiki = sentences_wiki[:int(len(sentences_wiki) / 2)]
 print(len(sentences_wiki))
 
 wiki_ted = []

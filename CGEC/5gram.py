@@ -1,7 +1,6 @@
 ﻿# -*- coding:utf-8 -*-
 # @Time    : 2019/11/21 19:45
 # @Author  : Ray.X
-# In[]
 import zipfile
 import lxml.etree
 import re
@@ -30,25 +29,22 @@ data = ' '.join([re.sub(r'\s', '', sent) for sent in sentences_strings_ted]).spl
 del sentences_strings_ted
 
 datax = [' '.join(sent).split(' ') for sent in data]
-del data
-# In[]
+# del data
 from nltk import ngrams, FreqDist
 from nltk.lm.preprocessing import pad_both_ends, flatten, padded_everygram_pipeline
 from nltk.lm import KneserNeyInterpolated, MLE
 
-# penta_grams =[ngrams(list(pad_both_ends(sent, 5)), 5) for sent in datax]
-# vocaby = list(flatten(pad_both_ends(sent, n=5) for sent in datax))
+# penta_grams =[list(ngrams(pad_both_ends(sent, 2), 2)) for sent in datax]
+# vocaby = list(flatten(pad_both_ends(sent, n=2) for sent in datax))
 
-
-# In[]
-train, vocab = padded_everygram_pipeline(3, datax)
-lm = KneserNeyInterpolated(3)
+train, vocab = padded_everygram_pipeline(5, datax)
+lm = KneserNeyInterpolated(5)
 lm.fit(train, vocab)
 
 # In[]
 # freq_dist = FreqDist(penta_grams)
-x = lm.perplexity([('宴', '会', '中')])
-y = lm.perplexity([('燕', '会', '中')])
-
-# In[]
-sent = lm.generate(4, random_seed=3)
+# test = '我想带你们体验一下，我们所要实现的“信任”的感觉。'
+# x = lm.perplexity(ngrams(list(pad_both_ends(test, 5)), 5))
+#
+# # In[]
+# sent = lm.generate(4, random_seed=3)
