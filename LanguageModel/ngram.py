@@ -6,9 +6,10 @@
 """
 import re
 from itertools import chain
-from nltk.lm import KneserNeyInterpolated
 from collections import Counter
-
+from nltk import ngrams, FreqDist
+from nltk.lm.preprocessing import pad_both_ends, flatten, padded_everygram_pipeline
+from nltk.lm import KneserNeyInterpolated, MLE
 
 
 class Ngram:
@@ -115,6 +116,7 @@ if __name__ == "__main__":
     sent_list = [' '.join(w).split(' ') for w in sent_list]
     while [""] in sent_list:
         sent_list.remove([""])
+    print(sent_list)
 
     lm = Ngram(3)
     lm.fit(sent_list)
