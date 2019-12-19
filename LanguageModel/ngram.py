@@ -92,7 +92,7 @@ class NGram:
                     self.counter[n][gram[:-1]][gram[-1]] += 1
             n += 1
 
-    def alpha_gamma(self, word, context, d=0.1):
+    def alpha_lambda(self, word, context, d=0.1):
         """
         计算 kneser_ney平滑公式的两个部分
         @return:
@@ -109,12 +109,13 @@ class NGram:
 
     def kneser_ney(self, word, context):
         """
-        return self.kneser_ney(word, context[1:]) 的目的是迭代 pkn(w[i-n+1],...wi) pkn(w[i-n+2],...wi)...pkn(unigrm)
+        return self.kneser_ney(word, context[1:]) 的目的是迭代
+        pkn(w[i-n+1],...wi) -> pkn(w[i-n+2],...wi)...pkn(unigrm) ->
         @return:
         """
         if not context:
             return 1.0 / len(self.unigrams)
-        _alpha, _lambda = self.alpha_gamma(word, context)
+        _alpha, _lambda = self.alpha_lambda(word, context)
         return _alpha + _lambda * self.kneser_ney(word, context[1:])
 
     def perplexity(self, test_ngrams):
