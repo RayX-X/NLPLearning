@@ -5,121 +5,136 @@
     Realization unigram bigram trigram and more 字粒度
 """
 import re
-from itertools import chain
-from collections import Counter
-from nltk import ngrams, FreqDist
-from nltk.lm.preprocessing import pad_both_ends, flatten, padded_everygram_pipeline
-from nltk.lm import KneserNeyInterpolated, MLE
+from collections import defaultdict
+from math import log
+import zipfile
+import lxml.etree
+from nltk.probability import ConditionalFreqDist, FreqDist
+import joblib
 
 
-class Ngram:
+def pre_data():
+    """
+        获取xml中的有效文本 content 数据 keywords 标签
+    """
+    with zipfile.ZipFile(r'D:\C\NLP\Data\ted_zh-cn-20160408.zip', 'r') as z:
+        doc = lxml.etree.parse(z.open('ted_zh-cn-20160408.xml', 'r'))
+    input_text = '\n'.join(doc.xpath('//content/text()'))  # 获取<content>标签下的文字
+    z.close()
+    del doc, z
+
+    input_text_noparens = re.sub(r'\([^)]*\)', '', input_text)
+    input_text_noparens = re.sub(r'（[^）]*）', '', input_text_noparens)
+
+    sentences_strings_ted = []
+    for line in input_text_noparens.split('\n'):
+        m = re.match(r'^(?:(?P<precolon>[^:]{,20}):)?(?P<postcolon>.*)$', line)
+        sentences_strings_ted.extend(sent for sent in re.split('[。？！]', m.groupdict()['postcolon']) if sent)
+
+    del input_text_noparens, input_text
+
+    sentences_strings_ted = [re.sub(r'[^\w\s]', '', sent) for sent in sentences_strings_ted]
+    sentences_strings_ted = [re.sub(r'[a-zA-Z0-9]', '', sent) for sent in sentences_strings_ted]
+    sentences_strings_ted = filter(None, sentences_strings_ted)
+    data = ' '.join([re.sub(r'\s', '', sent) for sent in sentences_strings_ted]).split(' ')
+    fin_data = [' '.join(sent).split(' ') for sent in data]
+    del sentences_strings_ted, data
+
+    return fin_data
+
+
+class NGram:
     def __init__(self, n):
         """
         定义N元模型参数
+        nltk的 ConditionalFreqDist 很好用就没有复写
+        参考 from nltk.probability import ConditionalFreqDist, FreqDist
+        @param n: 定义 ngram 元
         """
         self.N = n
-        self.count_up = Counter()
-        self.count_down = Counter()
-        self.unigram = Counter()
+        self.counter = defaultdict(ConditionalFreqDist)
+        self.counter[1] = self.unigrams = FreqDist()
 
     def prepare(self, sents):
         """
-        准备数据 分句在分字，句子头尾增加<s></s>
+        准备数据 分句在分字，句子头尾增加<BOS><EOS>
         @return:
         """
+        n = self.N
         left = ['<BOS>']
         right = ['<EOS>']
-        sents = (left*(self.N - 1) + list(sents) + right*(self.N - 1))
-
-        return iter(sents)
-
-    def n_gram(self, sents):
-        """
-        N元模型
-        @return:
-        """
-        history = []
-        n = self.N
-        while n > 1:
-            try:
-                next_sent = next(sents)
-            except StopAsyncIteration:
-                return
-            history.append(next_sent)
-            n -= 1
-        for sent in sents:
-            history.append(sent)
-            yield tuple(history)
-            del history[0]
-
-    def count(self, ngrams):
-        """
-        count_up: C(wi-n-1,...,wi-1,wi)
-        count_down: C(wi-n-1,...,wi-1)
-        @return:
-        """
-
-        for i in range(len(ngrams)):
-            for ngram in ngrams[i]:
-                if len(ngram) == 1:
-                    self.unigram[ngram] += 1
-                    continue
-                self.count_up[ngram] += 1
-                self.count_down[ngram[:-1]] += 1
-
-        # self.count_up = self.count_up.most_common()
-        # self.count_down = self.count_down.most_common()
-
-    def ckn(self):
-        """
-        选择合适的 low ngram
-        @return:
-        """
-        return 1
-
-    def kneserNey(self, d=0.75):
-        """
-        Kneser Ney 平滑
-        @return:
-        """
-        pkn = []
-        for i in range(len(self.count_up)):
-            if i == 0:
-                pkn[i] = max(self.count_up[i] - d, 0) / self.ckn()
-            else:
-                pkn[i] = max(self.count_up[i] - d, 0) / self.ckn() + d/self.ckn()*pkn[i-1]
+        sents = list(left * (n - 1) + sent + right * (n - 1)for sent in sents)
+        return sents
 
     def fit(self, sents):
         """
-        训练函数
-        @param sents: 输入形式[[1,2,3,4,5],[6,7,8,9],[10,11]]
+        训练函数 其实就是统计所有 1-n 元 ngram
+        self.counter[n][gram[:-1]][gram[-1]]
+        n =[1:n] 代表几元组
+        [gram[:-1]] 代表当前元组的(wi-n-1,...wi-1)
+        [gram[-1]]代表(wi-n-1,...wi-1)后存在的(w`)
+        例：self.counter=
+                    3:[(a, b):[c, d, e], (a, c):[c, d, e]]
+                    2:[(a):[b,c,d]]
+                    1:a,b,c,d
+        @param sents: 输入形式[[1,2,3,4,5],[6,7,8,9],[10,11]] 字粒度
         @return:
         """
-        ngram_data = [list(self.n_gram(self.prepare(sent))) for sent in sents]
-        Vocabulary = [chain.from_iterable(self.prepare(sent) for sent in sents)]
-        self.count(ngram_data)
+        ready = self.prepare(sents)
+        n = 1
+        while n <= self.N:
+            for sent in ready:
+                for i in range(len(sent) - n + 1):
+                    gram = tuple(sent[i:i + n])
+                    if n == 1:
+                        self.unigrams[gram[0]] += 1
+                        continue
+                    self.counter[n][gram[:-1]][gram[-1]] += 1
+            n += 1
 
-        # lm = KneserNeyInterpolated(2)
-        # lm.fit(ngram_data, Vocabulary)
-        # print(lm.perplexity([('当', '你'), ('遇', '到')]))
+    def alpha_gamma(self, word, context, d=0.1):
+        """
+        计算 kneser_ney平滑公式的两个部分
+        @return:
+        """
+        prefix_counts = self.counter[len(context) + 1][context]
+
+        _alpha = max(prefix_counts[word] - d, 0.0) / prefix_counts.N()
+        s = sum(1.0 for c in prefix_counts.values() if c > 0)
+        _lambda = d * s / prefix_counts.N()
+        print(s)
+        print(_alpha, _lambda)
+
+        return _alpha, _lambda
+
+    def kneser_ney(self, word, context):
+        """
+        return self.kneser_ney(word, context[1:]) 的目的是迭代 pkn(w[i-n+1],...wi) pkn(w[i-n+2],...wi)...pkn(unigrm)
+        @return:
+        """
+        if not context:
+            return 1.0 / len(self.unigrams)
+        _alpha, _lambda = self.alpha_gamma(word, context)
+        return _alpha + _lambda * self.kneser_ney(word, context[1:])
+
+    def perplexity(self, test_ngrams):
+        """
+        困惑度
+        输入为 ngram 形式
+        @return:
+        """
+        logs = sum(log(self.kneser_ney(ngram[-1], ngram[:-1]), 2) for ngram in test_ngrams)
+        entropy = -1 * logs / len(test_ngrams)
+        perplexit = pow(2.0, entropy)
+        return perplexit
 
 
 if __name__ == "__main__":
-    sentences = '我想和你们分享一个故事，关于我差点被绑到一辆红色马自达后备箱的故事。' \
-                '那是从设计学校毕业之后第二天，我在后院里弄了个旧货拍卖。' \
-                '这个家伙开着红色马自达过来了，他停了车并开始打量我的东西。' \
-                '最后，他买了一件我的艺术作品。\n' \
-                '我得知他今晚在这个镇上是孤身一人，他正在进行加入美国和平队之前的穿越美国的汽车旅行。' \
-                '于是我请他出去喝了一杯，他跟我聊到关于他想要改变世界的所有宏图大略。'
-    sent_list = sentences.split('。')
-    sent_list = [re.sub(r'[^\w\s]', '', sent.strip()) for sent in sent_list]
-    sent_list = [' '.join(w).split(' ') for w in sent_list]
-    while [""] in sent_list:
-        sent_list.remove([""])
-    print(sent_list)
-
-    lm = Ngram(3)
-    lm.fit(sent_list)
-
-
-
+    train_data = pre_data()
+    lm = NGram(3)
+    lm.fit(train_data)
+    # joblib 储存、复用模型
+    # joblib.dump(lm, 'ngram.pkl')
+    # lm = joblib.load('ngram.pkl')
+    perplexity = lm.perplexity([('我', '想', '你'), ('想', '你', '啦')])
+    print(perplexity)

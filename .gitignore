@@ -108,3 +108,5 @@ Data/
 
 kao.py
 zh_word_Seg/n_short.py
+CGEC/3gram.pkl
+CGEC/panti_gram.pkl
