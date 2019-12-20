@@ -188,7 +188,7 @@ if __name__ == "__main__":
     lm = NGram(3)
     lm.fit(train_data)
     # joblib 储存、复用模型
-    # joblib.dump(lm, 'ngram.pkl')
+    joblib.dump(lm, 'ngram.pkl')
     # lm = joblib.load('ngram.pkl')
     perplexity_modified = lm.perplexity([('我', '想', '你'), ('想', '上', '天')], 'modified')
     perplexity_old = lm.perplexity([('我', '想', '你'), ('想', '上', '天')], 'kneser_ney')
